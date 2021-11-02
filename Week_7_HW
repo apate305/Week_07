@@ -6,12 +6,20 @@ SELECT
  ELSE 'On Time' END) 
  AS Status, r.rental_id, r.rental_date, r.inventory_id, r.customer_id, r.return_date, 
  r.staff_id, r.last_update
-
- FROM film
+FROM film
  INNER JOIN inventory
  USING (film_id)
  INNER JOIN rental AS r 
  USING (inventory_id);
+
+/*
+The case statement aliased as Status will ouput a new column along with the rest of the 
+columns selected from the film table. The inner joins allows me to use the return_date 
+and rental_date form the rental table in my case statement. The case statement-->
+when the rental duration: is greater than the return date minus the rental date then add
+late to the feild, if less than then add early, otherwise add on time. The date_part
+function selects a specified part of a date, in this case just the day. 
+ */
 
 --2 Show the total payment amounts for people who live in Kansas City or Saint Louis.
 SELECT SUM (p.amount) AS total_payment, p.customer_id, city
@@ -24,10 +32,16 @@ INNER JOIN payment AS p
 ON c2.customer_id = p.customer_id
 WHERE city = 'Kansas City' OR city = 'Saint Louis'
 GROUP BY c.city, p.customer_id;
-
+/*
+Different columns are selected from different tables which is possible due to the inner
+joins. An aggregate functions are used on the amount table which means a group by clause 
+is neccesary on city and customer_id. The where clause restricts the output to just 
+kansas city and st louis. 
+*/
 
 --3 How many films are in each category? Why do you think there is a table for category 
 --  and a table for film category?
+
 SELECT COUNT(c.name) AS num_of_films, c.name
 FROM film_category AS f
 INNER JOIN category AS c
@@ -41,8 +55,8 @@ GROUP BY c.name;
 --want more films of a particular genre at their stores to increase their revenue. 
 
 
---4 Show a roster for the staff that includes their 
---  email, address, city, and country (not ids)
+--4 Show a roster for the staff that includes their email, address, city, 
+--  and country (not ids)
 SELECT email AS staff_email, a.address, c.city, c2.country
 FROM staff AS s
 INNER JOIN address AS a
@@ -51,6 +65,8 @@ INNER JOIN city AS c
 ON a.city_id = c.city_id
 INNER JOIN country AS c2
 ON c.country_id =  c2.country_id;
+
+--Columns are selcted from different tables through the inner joins. 
 
 
 --5 Show the film_id, title, and length for the movies that were returned 
@@ -63,6 +79,10 @@ INNER JOIN rental AS r
 ON i.inventory_id = r.inventory_id 
 WHERE return_date BETWEEN '2005-05-15' AND '2005-05-31';
 
+/*
+Columns are selcted from the film table and inner joins are used to combine film with
+rental so that the return_date column can be referenced in the where clause.  
+*/
 
 --6 Write a subquery to show which movies are rented below the average price for all movies.
 
@@ -71,13 +91,22 @@ FROM film
 WHERE rental_rate <
   (SELECT AVG(rental_rate)
    FROM film);
+/*
+Title and rental rate are selected from the film table and rental rate has to be less than 
+the avg rental rate selected from the film table.
+*/
 
 --7 Write a join statement to show which movies are rented below the average price 
 --  for all movies.
-SELECT f1.title, f1.rental_rate > AVG(f2.rental_rate) AS below_avg
+SELECT f1.title, f1.rental_rate < AVG(f2.rental_rate) AS below_avg
 FROM film AS f1, film AS f2
 GROUP BY f1.rental_rate, f1.title;
 
+/*
+A self join is used here so that the aggregate function can be used. Title and rental rate
+that is less than the avg rental rate aliased as below avg are selected from f1. 
+Since an aggregate function is used the query needs to be grouped by rental rate and title.
+*/
 --Link for later usage on self-join: https://www.w3schools.com/sql/sql_join_self.asp
 
 --8 Perform an explain plan on 6 and 7, and describe what you’re seeing and important ways 
