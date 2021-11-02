@@ -1,0 +1,141 @@
+--1 Create a new column called “status” in the rental table that uses a case statement 
+--  to indicate if a film was returned late, early, or on time. 
+SELECT
+(CASE WHEN rental_duration > date_part('day', return_date - rental_date) THEN 'Early'
+ WHEN rental_duration < date_part('day', return_date - rental_date) THEN 'Late'
+ ELSE 'On Time' END) 
+ AS Status, r.rental_id, r.rental_date, r.inventory_id, r.customer_id, r.return_date, 
+ r.staff_id, r.last_update
+
+ FROM film
+ INNER JOIN inventory
+ USING (film_id)
+ INNER JOIN rental AS r 
+ USING (inventory_id);
+
+--2 Show the total payment amounts for people who live in Kansas City or Saint Louis.
+SELECT SUM (p.amount) AS total_payment, p.customer_id, city
+FROM city AS c
+INNER JOIN address AS a
+ON c.city_id = a.city_id
+INNER JOIN customer AS c2
+ON a.address_id = c2.address_id
+INNER JOIN payment AS p
+ON c2.customer_id = p.customer_id
+WHERE city = 'Kansas City' OR city = 'Saint Louis'
+GROUP BY c.city, p.customer_id;
+
+
+--3 How many films are in each category? Why do you think there is a table for category 
+--  and a table for film category?
+SELECT COUNT(c.name) AS num_of_films, c.name
+FROM film_category AS f
+INNER JOIN category AS c
+ON f.category_id = c.category_id
+GROUP BY c.name;
+
+--It is important to keep track of the kinds of genres customers are intrested in hence 
+--there is a table that keeps track of the corresponding genres for films. This way the 
+--company can see which genres customers like more based on the amount of customers who are
+--renting films with specific genres. With this kind of data, companies can decide if they 
+--want more films of a particular genre at their stores to increase their revenue. 
+
+
+--4 Show a roster for the staff that includes their 
+--  email, address, city, and country (not ids)
+SELECT email AS staff_email, a.address, c.city, c2.country
+FROM staff AS s
+INNER JOIN address AS a
+ON s.address_id = a.address_id
+INNER JOIN city AS c
+ON a.city_id = c.city_id
+INNER JOIN country AS c2
+ON c.country_id =  c2.country_id;
+
+
+--5 Show the film_id, title, and length for the movies that were returned 
+--  from May 15 to 31, 2005
+SELECT f.film_id, f.title, f.length
+FROM film AS f
+INNER JOIN inventory AS i
+ON f.film_id = i.film_id
+INNER JOIN rental AS r
+ON i.inventory_id = r.inventory_id 
+WHERE return_date BETWEEN '2005-05-15' AND '2005-05-31';
+
+
+--6 Write a subquery to show which movies are rented below the average price for all movies.
+
+SELECT title, rental_rate 
+FROM film
+WHERE rental_rate <
+  (SELECT AVG(rental_rate)
+   FROM film);
+
+--7 Write a join statement to show which movies are rented below the average price 
+--  for all movies.
+SELECT f1.title, f1.rental_rate > AVG(f2.rental_rate) AS below_avg
+FROM film AS f1, film AS f2
+GROUP BY f1.rental_rate, f1.title;
+
+--Link for later usage on self-join: https://www.w3schools.com/sql/sql_join_self.asp
+
+--8 Perform an explain plan on 6 and 7, and describe what you’re seeing and important ways 
+--  they differ.
+--#6
+EXPLAIN ANALYZE
+SELECT title, rental_rate 
+FROM film
+WHERE rental_rate <(SELECT AVG(rental_rate) FROM film);
+
+/*
+A initial scan on the film table shows that the database starts with 1000 records. Then 
+an aggregate function results in one row with the avg output. The initplan shows the 
+result of the subquery which is 0.99. After that, the where clause removes or filters out
+659 rows. A final sequential scan shows that the resulting table has 341 rows. 
+Execution time: 1.792 ms
+Planning Time 0.145 ms
+*/
+
+--#7
+EXPLAIN ANALYZE
+SELECT f1.title, f1.rental_rate > AVG(f2.rental_rate) AS below_avg
+FROM film AS f1, film AS f2
+GROUP BY f1.rental_rate, f1.title;
+/*
+As seen in the explain plan, the initial scan of the table (f2) has the same result as 
+number 6 since the same database is used. This plan has materialize referencing the 
+self-join. Another scan is taken, this time for f1 which displays the same information
+as the previous scan on f2. This one also has a nested loop and some memory usage. 
+*/
+
+--9 With a window function, write a query that shows the film, its duration, 
+--  and what percentile the duration fits into. 
+--  This may help https://mode.com/sql-tutorial/sql-window-functions/#rank-and-dense_rank 
+
+SELECT f.title, f.length, 
+       DENSE_RANK() OVER(ORDER BY f.length DESC) Percentile
+FROM film AS f
+ORDER BY Percentile;
+
+/*
+The Dense_Rank function gives a rank number to each value in the field('f.length') 
+that is specified in Over(). You need to order the specified field so that 
+the dense_rank function can correctly assign a rank number to each unique field value 
+before incrementing the rank number by 1.
+*/
+
+--10 In under 100 words, explain what the difference is between set-based and 
+--   procedural programming. Be sure to specify which sql and python are.
+
+/*
+Languages that generate outputs by using procedures is a procedural language. 
+In procedural programming the users tell the interpreter what they want and how to go 
+about it. Python is a procedural language. You have to write code that tells python 
+how to solve the problem instead of just giving the problem to solve. 
+
+Languages that are able to generate outputs without the “how” is referred to as 
+a set-based language. You only have to specify what you want the database engine 
+to do and it with figure out the logic of how to go about it. SQL is a nonprocedural 
+and set based language. This is because SQL is able to determine how to output based 
+on the input or the problem its given. 
